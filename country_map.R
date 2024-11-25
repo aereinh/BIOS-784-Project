@@ -38,11 +38,15 @@ country_data_rename <- country_data %>%
 world_data <- world %>%
   left_join(country_data_rename, by = c("name" = "country"))
 
-ggplot()+
+country_plot <- ggplot()+
   geom_sf(data = world_data, aes(fill = count), color = "white")+
   scale_fill_viridis_c(option = "plasma", na.value = "gray90", name = "Sample Count per Country")+
   geom_point(data = site_coords, aes(x = long, y = lat, size = siteCount), color = "red", alpha = .7)+
   scale_size_continuous(name = "Sample Count per Site", range = c(1,5))+
   coord_sf(xlim = c(-120, 120), ylim = c(-30, 30)) +
-  theme_minimal()+
+  theme_bw()+
   labs(title = "Global Map of MalariaGen Parasite Samples")
+country_plot
+
+ggsave(filename = 'figs/country_map.png', plot=country_plot)
+
