@@ -2,10 +2,10 @@ library(tidyverse)
 library(lme4)
 
 # Data Cleaning ------------------------------------------------------------
-setwd('~/Dropbox/UNC/Fall2024/BIOS784/Final_Project/')
-fws_data <- read.csv('pf7_fws.txt', sep = "\t")
+#setwd('~/Dropbox/UNC/Fall2024/BIOS784/Final_Project/')
+fws_data <- read.csv('../data/pf7_fws.txt', sep = "\t")
 fws_data$sample_id <- fws_data$Sample
-metadata <- read.csv('Pf7-samples.csv')
+metadata <- read.csv('../data/Pf7-samples.csv')
 df_merge <- inner_join(fws_data, metadata, by = "sample_id") %>% select(-Sample)
 # df_merge <- df_merge %>%
 #   mutate(across(ends_with("resistant"), ~ factor(ifelse(. == "undetermined", NA_real_, .))))
@@ -15,10 +15,10 @@ df_merge <- df_merge %>%
     . == "resistant" ~ 1,
     . == "undetermined" ~ NA_real_
   )))
-write_csv(df_merge, 'pf7_merged.csv')
+write_csv(df_merge, '../data/pf7_merged.csv')
 
 # Data Processing ---------------------------------------------------------
-df_model <- read.csv('pf7_merged.csv')
+df_model <- read.csv('../data/pf7_merged.csv')
 
 # logit transform 
 # (deals with some of the skewness in the Fws/COI variable, which ranges from 0-1)

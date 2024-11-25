@@ -7,7 +7,7 @@ library(tidygeocoder)
 # Show Country Map of Sample Sizes ----------------------------------------
 
 #setwd('~/Dropbox/UNC/Fall2024/BIOS784/Final_Project/BIOS-784-Project/')
-sample_data <- read.csv('Pf7-samples.csv')
+sample_data <- read.csv('../data/Pf7-samples.csv')
 sample_data_qc <- sample_data %>% dplyr::filter(qc_pass==T)
   
 # get sample counts by country
@@ -48,5 +48,5 @@ country_plot <- ggplot()+
   labs(title = "Global Map of MalariaGen Parasite Samples")
 country_plot
 
-ggsave(filename = 'figs/country_map.png', plot=country_plot)
+ggsave(filename = '../figs/country_map.png', plot=country_plot)
 
