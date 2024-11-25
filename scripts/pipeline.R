@@ -79,7 +79,7 @@ df_clusters <- df_pca %>%
     assigned_cluster = names(which.max(prop.table(table(factor(cluster, levels = all_clusters)))))
   ) %>%
   mutate(region_grp = factor(assigned_cluster)) %>%
-  select(-c(assigned_cluster, cluster))
+  select(-cluster)
 df_clusters_byCountry <- df_clusters %>%
   group_by(country) %>%
   summarise(cluster = unique(assigned_cluster)[1])
@@ -119,6 +119,7 @@ write.csv(df_final, '../data/pf7_prediction.csv')
 
 
 # Prediction (10-fold Cross-Validation) --------------------------------------------------------------
+df_final = read.csv('data/pf7_prediction.csv')
 data = df_final %>% na.omit()
 
 remove_zerovar <- function(data, groups) {
@@ -224,9 +225,9 @@ cross_validate <- function(form, data, family="binomial",
 set.seed(123)
 nfolds <- 10
 family <- "binomial"
-form_fixed = ARTresistant ~ Monoclonal + region_grp
-form_randint = ARTresistant ~ Monoclonal + (1|region_grp)
-form_randslope = ARTresistant ~ Monoclonal + (Monoclonal|region_grp)
+form_fixed = CQresistant ~ Monoclonal + region_grp
+form_randint = CQresistant ~ Monoclonal + (1|region_grp)
+form_randslope = CQresistant ~ Monoclonal + (Monoclonal|region_grp)
 cv_res_fixed <- cross_validate(form_fixed, data, family = family, nfolds=nfolds)
 cv_res_randint <- cross_validate(form_randint, data, family = family, nfolds=nfolds)
 cv_res_randslope <- cross_validate(form_randslope, data, family = family, nfolds=nfolds)
@@ -277,19 +278,44 @@ if (family == "gaussian") {
 
 # Explore Effects ---------------------------------------------------------
 
-groups <- c("resistant3", "country")
+groups <- c("CQresistant", "country")
 data_rm <- remove_zerovar(data, groups)
 
-form_fixed = resistant3 ~ Fws_logit + country
-form_randint = resistant3 ~ Fws_logit + (1|country)
-form_randslope = resistant3 ~ Fws_logit + (Fws_logit|country)
+form_fixed = CQresistant ~ Monoclonal*country
+form_randint = CQresistant ~ Monoclonal + (1|country)
+form_randslope = CQresistant ~ Monoclonal + (Monoclonal|country)
 
 fullmod_fixed <- glm(formula = form_fixed, data = data, family = "binomial")
 fullmod_randint <- glmer(formula = form_randint, data = data, family = "binomial")
 fullmod_randslope <- glmer(formula = form_randslope, data = data, family = "binomial")
 
+
+raneff <- ranef(fullmod_randslope)$country
+fixed_summ <- summary(fullmod_fixed)
+fixed_coef <- fixed_summ$coefficients
+
+countries <- rownames(ranef(fullmod_randslope)$country)
+randslope_ors <- exp(ranef(fullmod_randslope)$country[,2])
+fixedslope_ors <- exp(as.numeric(coef(fullmod_fixed)[startsWith(names(coef(fullmod_fixed)),"Monoclonal:")]))
+
+
+countries_mod <- rownames(fixed_coef)[35:65]
+which(!(paste0("Monoclonal:country",countries) %in% countries_mod))
+
+
+df_model_estimates <- data.frame()
+df_model_estimates$countries <- rownames(raneff)
+df_model_estimates$randslope <- raneff[,2]
+
+ref_slope_ind = which(rownames(fixed_coef)=="Monoclonal")
+interaction_inds <- which(startsWith(rownames(fixed_coef), "Monoclonal:country"))
+
+countries_mod <- which(startsWith(rownames(fixed_coef), "country"))
+
 summary(fullmod_fixed)
 summary(fullmod_randint)
 summary(fullmod_randslope)
+
+VarCorr()
 
 hist(ranef(fullmod_randslope)$country[,2])
