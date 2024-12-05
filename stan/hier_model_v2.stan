@@ -1,4 +1,4 @@
-// hier_model.stan
+// hier_model_v2.stan
 // Hierarchical model
 data {
   int<lower=1> N;             // Number of observations
@@ -29,5 +29,12 @@ model {
   // Likelihood
   for (n in 1:N) {
     y[n] ~ bernoulli_logit(alpha0 + alpha1 * x[n] + mu0[region[n]] + mu1[region[n]] * x[n]);
+  }
+}
+
+generated quantities {
+  int y_rep[N];
+  for (n in 1:N) {
+    y_rep[n] = bernoulli_logit_rng(alpha0 + alpha1 * x[n] + mu0[region[n]] + mu1[region[n]] * x[n]);
   }
 }
