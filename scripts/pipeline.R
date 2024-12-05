@@ -125,6 +125,17 @@ df_long = df_final %>%
   mutate(drug = factor(sub("resistant.*$", "", drug))) %>%
   mutate(region_grp = factor(region_grp, levels = 1:6))
 
+
+# monoclonal frequencies
+df_long %>%
+  ggplot(aes(x = factor(region_grp), fill = factor(Monoclonal)))+
+  geom_bar(position = "fill")+
+  ylab("Proportion")+
+  xlab("Country")+
+  labs(fill = "Resistant")+
+  ggtitle('Relative frequency of drug resistance')
+
+
 # resistance frequencies
 df_long %>%
   ggplot(aes(x = drug, fill = resistance_f))+
@@ -138,7 +149,8 @@ df_long %>%
 
 # resistance on Monoclonal trends
 df_long %>%
-  ggplot(aes(x = Monoclonal, y = resistance, col = factor(region_grp)))+
+  mutate(Polyclonal = 1-Monoclonal) %>%
+  ggplot(aes(x = Polyclonal, y = resistance, col = factor(region_grp)))+
   stat_smooth(method = "glm", se = F, method.args = "binomial")+
   facet_wrap(vars(drug))+
   labs(col = "Region")+
@@ -155,6 +167,8 @@ df_grp = df_long %>%
   group_by(drug, region_grp, Monoclonal) %>%
   summarise(n = n(), sd_y = sd(resistance), .groups = "keep")
 df_grp_novar = df_grp %>% filter(sd_y == 0)
+
+write.csv(df_long, '../data/pf7_prediction_orig.csv')
 
 df_long_rm = df_long %>%
   group_by(drug, region_grp, Monoclonal) %>%
@@ -173,10 +187,10 @@ fit_models = function(data, outcome=NULL) {
   } else {
     data_o = data
   }
-  mod_main_o = glm(resistance ~ Monoclonal+region_grp, data = data_o, family = "binomial")
-  mod_int_o = glm(resistance ~ Monoclonal*region_grp, data = data_o, family = "binomial")
-  mod_ri_o = glmer(resistance ~ Monoclonal + (1|region_grp), data = data_o, family = "binomial")
-  mod_rs_o = glmer(resistance ~ Monoclonal + (Monoclonal|region_grp), data = data_o, family = "binomial")
+  mod_main_o = glm(resistance ~ Monoclonal+scale(year)+region_grp, data = data_o, family = "binomial")
+  mod_int_o = glm(resistance ~ scale(year)+Monoclonal*region_grp, data = data_o, family = "binomial")
+  mod_ri_o = glmer(resistance ~ scale(year)+Monoclonal + (1|region_grp), data = data_o, family = "binomial")
+  mod_rs_o = glmer(resistance ~ scale(year)+Monoclonal + (Monoclonal+scale(year)|region_grp), data = data_o, family = "binomial")
   Model_list = list("Fixed_Main"=mod_main_o,
                     "Fixed_Int"=mod_int_o,
                     "Mixed_RI"=mod_ri_o,
@@ -208,10 +222,10 @@ fit_models_cv = function(data, outcome=NULL) {
   } else {
     data_o = data
   }
-  mod_main_o = glm(resistance ~ Monoclonal+region_grp, data = data_o, family = "binomial")
-  mod_int_o = glm(resistance ~ Monoclonal*region_grp, data = data_o, family = "binomial")
-  mod_ri_o = glmer(resistance ~ Monoclonal + (1|region_grp), data = data_o, family = "binomial")
-  mod_rs_o = glmer(resistance ~ Monoclonal + (Monoclonal|region_grp), data = data_o, family = "binomial")
+  mod_main_o = glm(resistance ~ Monoclonal+region_grp+year, data = data_o, family = "binomial")
+  mod_int_o = glm(resistance ~ Monoclonal*region_grp+year, data = data_o, family = "binomial")
+  mod_ri_o = glmer(resistance ~ Monoclonal + year + (1|region_grp), data = data_o, family = "binomial")
+  mod_rs_o = glmer(resistance ~ Monoclonal + year + (Monoclonal|region_grp), data = data_o, family = "binomial")
   Model_list = list("Fixed_Main"=mod_main_o,
                     "Fixed_Int"=mod_int_o,
                     "Mixed_RI"=mod_ri_o,
@@ -286,14 +300,20 @@ groups = c("resistance", "Monoclonal", "region_grp")
 unique(df_long_rm$drug)
 
 # Run 10-fold cross-validation
-#cv_res_art = cross_validation(df_long_rm, "ART", groups, nfolds = 10)
-cv_res_cq = cross_validation(df_long_rm, "CQ", groups, nfolds = 10, nreps = 3, seed = 123)
-#cv_res_ppq = cross_validation(df_long_rm, "PPQ", groups, nfolds = 10)
-#cv_res_pyr = cross_validation(df_long_rm, "PYR", groups, nfolds = 10)
-#cv_res_sdx = cross_validation(df_long_rm, "SDX", groups, nfolds = 10)
-#cv_res_mq = cross_validation(df_long_rm, "MQ", groups, nfolds = 10)
+cv_res_art = cross_validation(df_long_rm, "ART", groups, nfolds = 10, nreps=3)
+cv_res_cq = cross_validation(df_long_rm, "CQ", groups, nfolds = 10, nreps=3)
+cv_res_ppq = cross_validation(df_long_rm, "PPQ", groups, nfolds = 10, nreps=3)
+cv_res_pyr = cross_validation(df_long_rm, "PYR", groups, nfolds = 10, nreps=3)
+cv_res_sdx = cross_validation(df_long_rm, "SDX", groups, nfolds = 10, nreps=3)
+cv_res_mq = cross_validation(df_long_rm, "MQ", groups, nfolds = 10, nreps=3)
 
-#list.save(cv_res_cq, '../cv_results/CQPrediction.rdata')
+# Save results
+list.save(cv_res_art, '../cv_results/ARTPrediction.rdata')
+list.save(cv_res_cq, '../cv_results/CQPrediction.rdata')
+list.save(cv_res_ppq, '../cv_results/PPQPrediction.rdata')
+list.save(cv_res_pyr, '../cv_results/PYRPrediction.rdata')
+list.save(cv_res_sdx, '../cv_results/SDXPrediction.rdata')
+list.save(cv_res_mq, '../cv_results/MQPrediction.rdata')
 
 
 # Plot Results ------------------------------------------------------------
@@ -327,6 +347,123 @@ p = p+stat_compare_means(
 )
 p
 
+
+
+
+# Stan Modeling -----------------------------------------------------------
+library(rstan)
+library(loo)
+library(bayesplot)
+library(caret)
+library(cmdstanr)
+
+stan_train_mod = function(df_stan, p = .2, chains = 4, niter = 2000, seed = 42) {
+  set.seed(seed)
+  n <- nrow(df_stan)
+  train_idx <- createDataPartition(df_stan$resistance, p = .2, list = F)
+  train_data <- df_stan[train_idx, ]
+  test_data <- df_stan[-train_idx, ]
+  stan_train_data <- list(
+    N = nrow(train_data),
+    I = length(unique(train_data$region_grp)),
+    region = train_data$region_grp,
+    x = train_data$Monoclonal,
+    y = train_data$resistance
+  )
+  stan_mod <- cmdstan_model('../stan/hier_model_v3.stan')
+  iter_sampling = iter_warmup = round(niter/2)
+  stan_fit <- stan_mod$sample(
+    data = stan_train_data,
+    chains = chains,
+    iter_sampling = iter_sampling,
+    iter_warmup = iter_warmup,
+    seed = seed, 
+    parallel_chains = chains
+  )
+  res = list(stan_fit = stan_fit,
+             train_data = train_data,
+             test_data = test_data)
+}
+stan_eval_mod = function(stan_fit, test_data) {
+  stan_test_data <- list(
+    N = nrow(test_data),
+    I = length(unique(train_data$region_grp)),
+    region = test_data$region_grp,
+    x = test_data$Monoclonal
+  )
+  alpha0 <- stan_fit$draws("alpha0", format = "matrix")
+  alpha1 <- stan_fit$draws("alpha1", format = "matrix")
+  mu0 <- stan_fit$draws("mu0", format = "matrix")
+  mu1 <- stan_fit$draws("mu1", format = "matrix")
+  
+  # predict
+  n_test <- nrow(test_data)
+  n_samples <- length(alpha0)
+  y_pred_test <- matrix(NA, nrow = n_samples, ncol = n_test)
+  y_obs_test <- test_data$resistance
+  
+  for (i in 1:n_samples) {
+    eta <- alpha0[i] + alpha1[i] * test_data$Monoclonal +
+      mu0[i, test_data$region_grp] + mu1[i, test_data$region_grp] * test_data$Monoclonal
+    y_pred_test[i, ] <- rbinom(n_test, size = 1, prob = plogis(eta))
+  }
+  
+  y_pred_probs_test <- apply(y_pred_test,2,mean)
+  y_hat_test <- ifelse(y_pred_probs_test >= .5,1,0)
+  
+  print(mean(y_hat_test==y_obs_test))
+  return(list(yobs = y_obs_test, ypred = y_hat_test, y_pred_probs = y_pred_probs_test, ypred_samps = y_pred_test))
+}
+
+df_stan <- df_long_rm %>% filter(drug == "CQ")
+train_res = stan_train_mod(df_stan, p = .1, chains = 2, niter = 1500, seed = 123)
+test_res = stan_eval_mod(train_res$stan_fit, train_res$test_data)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+set.seed(123)
+N = 500
+df_stan = df_long_rm %>% filter(drug == "CQ")
+nobs = nrow(df_stan)
+samps = sample(1:nobs, N)
+region = as.integer(df_stan$region_grp[samps])
+y = df_stan$resistance[samps]
+x = df_stan$Monoclonal[samps]
+nregions = length(unique(region))
+
+niter <- 2000
+
+stan_data <- list(
+  N = N, I = nregions, region = region, x = x, y = y
+)
+
+fit_hier <- sampling(
+  stan_model(file = "../stan/hier_model_v2.stan"),
+  data = stan_data,
+  iter = niter, 
+  chains = 2,
+  seed = 123
+)
+
+y_rep = extract(fit_hier, pars = "y_rep")$y_rep
+ppc_stat = bayesplot::ppc_stat(y = y, yrep = y_rep)
+bayesplot::ppc_dens_overlay(y = y, yrep = y_rep[1:50, ])
 
 
 # Prediction (10-fold Cross-Validation) --------------------------------------------------------------
